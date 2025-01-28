@@ -92,7 +92,6 @@ def read_json(file_path, encoding='utf-8'):
         flattened_data = pd.concat(flattened_data_list, ignore_index=True)
     return flattened_data
 
-# Method to clean the dataframe
 def cleaning(df, root):
     df = df.copy()
     df.rename(columns={'name': 'Entity'}, inplace=True)
@@ -104,7 +103,6 @@ def cleaning(df, root):
     df['File'] = df['File'].str.lstrip('/')
     return df
 
-# Method to extract dependencies
 def extract_dependencies(df):
     deps_list = []
     entity_set = set(df['Entity'])
@@ -122,7 +120,6 @@ def extract_dependencies(df):
     
     return deps_df
 
-# Method to clean and merge the entities
 def clean_and_merge_entities(df):
     def clean_text_tokens(texts):
         cleaned_texts = []
@@ -144,12 +141,11 @@ def clean_and_merge_entities(df):
     })
     return merged_df
 
-# Method to get module from labels
 def get_module(df, labels):
     df = df.copy()
     df['Module'] = None
     for _, row in labels.iterrows():
-        file_pattern = row['Entity']
+        file_pattern = re.escape(row['Entity'])
         module = row['Module']
         df.loc[df['Entity'].str.contains(file_pattern, regex=True, na=False), 'Module'] = module
     
@@ -162,7 +158,6 @@ def get_module(df, labels):
     
     return dff, file_id_map
 
-# Method to get dependencies
 def get_dependencies(file_id_map, df, df_dep, architecture):
     df_dep = df_dep.copy()
     df = df.copy()
@@ -217,7 +212,9 @@ def main(labels_path, json_path, dataset_name):
     df, file_id_map = get_module(df, labels)
     df_dep = get_dependencies(file_id_map, df, df_dep, architecture)
     df = generate_Graph(df, df_dep)
-    processed_dir = os.path.join("data", "processed")
+    
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    processed_dir = os.path.join(base_dir, "data", "processed")
     os.makedirs(processed_dir, exist_ok=True)
 
     # Save processed data in the processed directory
