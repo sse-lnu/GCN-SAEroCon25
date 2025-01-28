@@ -1,0 +1,39 @@
+# name
+ProM6.9
+
+# jar
+ProM-Contexts-6.9.56.jar
+ProM-Framework-6.9.97.jar
+ProM-Models-6.9.32.jar
+ProM-Plugins-6.9.67.jar
+
+# root-packages
+org/processmining/
+
+# modules
+prom.framework
+prom.domain.contexts
+prom.domain.models
+prom.domain.plugins
+#prom.packages
+#log
+#apacheutils
+
+# mapping
+# <high_level_module> <regular_expression>
+prom.framework org\.processmining\.framework\.*
+prom.domain.contexts org\.processmining\.contexts\.*
+prom.domain.models org\.processmining\.models\.*
+prom.domain.plugins org\.processmining\.plugins\.*
+
+# relations
+# <source_module> <target_module>
+prom.domain.contexts prom.framework
+prom.domain.models prom.framework
+prom.domain.plugins prom.framework
+prom.domain.plugins prom.domain.contexts
+prom.domain.plugins prom.domain.models
+#prom.packages prom.framework
+#prom.packages prom.domain.plugins
+#prom.packages prom.domain.contexts
+#prom.packages prom.domain.models
