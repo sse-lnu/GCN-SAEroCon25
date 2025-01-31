@@ -1,30 +1,15 @@
 import torch
 from train_eval import train, evaluate
 import numpy as np
+from graphs.data import HeterogeneousData
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.metrics import f1_score, precision_score, recall_score
 
 def gnn_learning(data, model, initial_mapping, orphans, loss_fn, lr, max_norm, lambda_t, epochs=50, verbose=True):
     """
     Perform iterative learning for Graph Neural Networks (GNNs) including GCN and RGCN.
-
-    Args:
-        data: The dataset for training and evaluation.
-        model: The model (GCN/RGCN) to be trained.
-        initial_mapping: The initial set of mapped entities.
-        orphans: The set of orphan entities to be mapped.
-        loss_fn: The loss function for training.
-        lr: The learning rate for the optimizer.
-        max_norm: Maximum gradient norm for clipping.
-        lambda_t: Threshold scaling factor for iterative learning.
-        epochs: Number of epochs to train (default: 50).
-        verbose: Whether to print detailed iteration logs (default: True).
-
-    Returns:
-        embeddings: The embeddings after each iteration.
-        metrics: A dictionary of evaluation metrics at the end of the process.
     """
-    is_heterogeneous = hasattr(data, "x_dict") and hasattr(data, "edge_index_dict")
+    # Initialize required variables
     device = next(model.parameters()).device
     mapped_entities = initial_mapping.to(device)
     orphans = orphans.to(device)
@@ -60,7 +45,7 @@ def gnn_learning(data, model, initial_mapping, orphans, loss_fn, lr, max_norm, l
         if len(predicted_labels) > 0:
             mapped_entity_indices = torch.tensor(list(predicted_labels.keys()), device=device)
 
-            out = model(data.x_dict, data.edge_index_dict) if is_heterogeneous else model(data.x, data.edge_index)
+            out = model(data.x_dict, data.edge_index_dict) if hasattr(data, "x_dict") else model(data.x, data.edge_index)
             probs = torch.softmax(out[mapped_entity_indices], dim=1)
             confidence_scores, new_predictions = torch.max(probs, dim=1)
 
@@ -74,13 +59,19 @@ def gnn_learning(data, model, initial_mapping, orphans, loss_fn, lr, max_norm, l
         if predicted_labels:
             mapped_entity_indices = list(predicted_labels.keys())
             mapped_predicted_labels = list(predicted_labels.values())
-            true_labels = (data['entity'].y[mapped_entity_indices].cpu() 
-                           if is_heterogeneous else data.y[mapped_entity_indices].cpu())
+            if isinstance(data, HeterogeneousData):
+                true_labels = data['entity'].y[mapped_entity_indices].cpu()
+            else:
+                true_labels = data.y[mapped_entity_indices].cpu()
 
-            metrics_history["precision_micro"].append((len(mapped_entities), precision_score(true_labels, mapped_predicted_labels, average='micro')))
-            metrics_history["precision_macro"].append((len(mapped_entities), precision_score(true_labels, mapped_predicted_labels, average='macro')))
-            metrics_history["recall_micro"].append((len(mapped_entities), recall_score(true_labels, mapped_predicted_labels, average='micro')))
-            metrics_history["recall_macro"].append((len(mapped_entities), recall_score(true_labels, mapped_predicted_labels, average='macro')))
+            # Handle undefined metrics
+            precision_macro = precision_score(true_labels, mapped_predicted_labels, average='macro', zero_division=1)
+            recall_macro = recall_score(true_labels, mapped_predicted_labels, average='macro', zero_division=1)
+
+            metrics_history["precision_micro"].append((len(mapped_entities), precision_score(true_labels, mapped_predicted_labels, average='micro', zero_division=1)))
+            metrics_history["precision_macro"].append((len(mapped_entities), precision_macro))
+            metrics_history["recall_micro"].append((len(mapped_entities), recall_score(true_labels, mapped_predicted_labels, average='micro', zero_division=1)))
+            metrics_history["recall_macro"].append((len(mapped_entities), recall_macro))
             metrics_history["f1_micro"].append((len(mapped_entities), f1_score(true_labels, mapped_predicted_labels, average='micro')))
             metrics_history["f1_macro"].append((len(mapped_entities), f1_score(true_labels, mapped_predicted_labels, average='macro')))
             metrics_history["mapped_sizes"].append((iteration + 1, len(mapped_entities)))
@@ -101,7 +92,7 @@ def gnn_learning(data, model, initial_mapping, orphans, loss_fn, lr, max_norm, l
 
         iteration += 1
 
-    return embeddings, {
+    return {
         "initial_set_size": len(initial_mapping),
         "final_mapped_size": len(mapped_entities),
         "final_unmapped_size": len(orphans),
@@ -114,14 +105,12 @@ def gnn_learning(data, model, initial_mapping, orphans, loss_fn, lr, max_norm, l
         "metrics_history": metrics_history,
         "mapped_entities_indices": mapped_entities.cpu().numpy(),
         "unmapped_entities_indices": orphans.cpu().numpy(),
-        "initial_set_indices": initial_mapping.cpu().numpy()
+        "initial_set_indices": initial_mapping.cpu().numpy(),
+        'final_embeddings': embeddings['Iteration: {}'.format(iteration)].detach().cpu().numpy() if embeddings else None
     }
 
-################### Niave BAYES lEARNING ###################### 
 
-import numpy as np
-from sklearn.naive_bayes import MultinomialNB
-from sklearn.metrics import f1_score, precision_score, recall_score
+################### Niave BAYES lEARNING ###################### 
 
 def nb_learning(X, Y, initial_mapping_indices, orphans_indices, lambda_t=None, test_mapped_entities=True, verbose=True):
     """
@@ -167,7 +156,7 @@ def nb_learning(X, Y, initial_mapping_indices, orphans_indices, lambda_t=None, t
             std_confidence = confidence_scores.std()
             threshold = lambda_t if isinstance(lambda_t, float) else lambda_t(iteration)
             confidence_threshold = mean_confidence + std_confidence * threshold
-            confidence_threshold = min(confidence_threshold, 0.99)
+            confidence_threshold = min(confidence_threshold, 0.98)
         else:
             confidence_threshold = 0.9
 

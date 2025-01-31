@@ -42,7 +42,9 @@ class DataNB():
         Generates embeddings for CDA and Code columns, ensuring a consistent feature space for all rows.
         """
         self.df['CDA'] = self.df.apply(lambda row: self._generate_cda_text(row), axis=1).str.lower().str.split().str.join(' ')
-        corpus = self.df['CDA'].fillna('') + ' ' + self.df['Code'].fillna('')
+        self.df['Code'] = self.df['Code'].fillna('').str.replace('/', ' ')
+        self.df['Code'] = self.df['Code'].str.lower()
+        corpus = self.df['CDA'].fillna('') + ' ' + self.df['Code']
         count_vectorizer = CountVectorizer()
         self.X = count_vectorizer.fit_transform(corpus).toarray()
 
@@ -106,9 +108,7 @@ class DataNB():
     
 
     ########### Homogeneous Data #############
-
-
-    class HomogeneousData(Data):
+class HomogeneousData(Data):
     def __init__(self, df, df_dep):
         super().__init__()
         self.df = df.copy()
@@ -122,8 +122,6 @@ class DataNB():
         self._preprocess_dataframes()
         self._create_node_features_and_labels()
         self._create_edges()
-        self.df = None
-        self.df_dep = None
 
     def _preprocess_dataframes(self):
         self.df = self.df[~self.df.Module.isna()]
@@ -139,7 +137,9 @@ class DataNB():
         self.df_dep.dropna(subset=['Source_ID', 'Target_ID'], inplace=True)
 
     def _create_node_features_and_labels(self):
-        self.df['Code'] = self.df['Code'].fillna('')
+        self.df['Code'] = self.df['Code'].fillna('') + ' ' + self.df['File'].fillna('')
+        self.df['Code'] = self.df['Code'].str.replace('/', ' ')
+        self.df['Code'] = self.df['Code'].str.lower()
         code_vectorizer = CountVectorizer(binary=True)
         code_matrix = code_vectorizer.fit_transform(self.df['Code'])
         code_vectors = code_matrix.toarray()
@@ -154,7 +154,7 @@ class DataNB():
         dependency_encoded = pd.get_dummies(self.df_dep['Dependency_Type'], prefix='DepType')
         self.df_dep = pd.concat([self.df_dep, dependency_encoded], axis=1)
         self.edge_index = torch.tensor(
-            [self.df_dep['Source_ID'].values, self.df_dep['Target_ID'].values],
+            np.array([self.df_dep['Source_ID'].values, self.df_dep['Target_ID'].values]),
             dtype=torch.long
         )
         self.edge_attr = torch.stack([
@@ -189,9 +189,10 @@ class DataNB():
 
         test_indices = torch.tensor(list(set(all_nodes.tolist()) - set(train_indices.tolist())), dtype=torch.long, device=device)
         return train_indices[torch.randperm(len(train_indices))], test_indices[torch.randperm(len(test_indices))]
-    
+
     ####### HeteroGenous Data ############
-    class HeterogeneousData(HeteroData):
+
+class HeterogeneousData(HeteroData):
     def __init__(self, df, df_dep):
         super().__init__()
         self.df = df.copy()
@@ -220,7 +221,8 @@ class DataNB():
         self.df_dep.dropna(subset=['Source_ID', 'Target_ID'], inplace=True)
 
     def _create_node_features_and_labels(self):
-        self.df['Code'] = self.df['Code'].fillna('')
+        self.df['Code'] = self.df['Code'].fillna('').str.replace('/', ' ')
+        self.df['Code'] = self.df['Code'].str.lower()
         code_vectorizer = CountVectorizer(binary=True)
         code_matrix = code_vectorizer.fit_transform(self.df['Code'])
         code_vectors = code_matrix.toarray()
@@ -237,7 +239,8 @@ class DataNB():
             edge_dict[row['Dependency_Type']].append((row['Source_ID'], row['Target_ID']))
         for dep_type, edges in edge_dict.items():
             source_ids, target_ids = zip(*edges)
-            self['entity', dep_type, 'entity'].edge_index = torch.tensor([source_ids, target_ids], dtype=torch.long)
+            edge_index = np.array([source_ids, target_ids])
+            self['entity', dep_type, 'entity'].edge_index = torch.tensor(edge_index, dtype=torch.long)
 
     def generate_split(self, q_threshold=0.3, split_ratio=0.05):
         device = self['entity'].x.device

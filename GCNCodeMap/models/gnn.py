@@ -30,9 +30,9 @@ class GCN(nn.Module):
         
         input_channels = embed_dim if embed_dim else input_dim
         self.convs = nn.ModuleList(
-            [GCNConv(input_channels, hidden_channels)] +  
-            [GCNConv(hidden_channels, hidden_channels) for _ in range(num_layers - 2)]
-            [GCNConv(hidden_channels, out_channels)] 
+            [GCNConv(input_channels, hidden_channels)] +  # First layer
+            [GCNConv(hidden_channels, hidden_channels) for _ in range(num_layers - 2)] +  # Middle layers
+            [GCNConv(hidden_channels, out_channels)]  # Last layer
         )
         
         self.dropout = dropout
@@ -58,7 +58,9 @@ class GCN(nn.Module):
             x = F.relu(x)
             x = F.dropout(x, p=self.dropout, training=self.training) 
         x = self.convs[-1](x, edge_index)  
+        
         return x
+
 
 ####################
 class RGCN(nn.Module):

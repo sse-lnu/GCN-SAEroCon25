@@ -120,43 +120,56 @@ def extract_dependencies(df):
     
     return deps_df
 
-def clean_and_merge_entities(df):
+def clean_code(df):
+
     def clean_text_tokens(texts):
         cleaned_texts = []
         for token in texts:
-            if re.fullmatch(r'[\n\t]{1,}', token):
+            if re.fullmatch(r'[\n\t]{1,}', token):  # Skip newlines/tabs
                 continue
-            if len(token) == 1 or token.isdigit() or not any(char.isalpha() for char in token):
+            if len(token) == 1 or token.isdigit() or not any(char.isalpha() for char in token):  # Skip single chars/numbers
                 continue
-            if token in ['<init>', '<clinit>', '<p>']:
+            if token in ['<init>', '<clinit>', '<p>']:  
                 continue
-            token = token.replace(':', '').replace(',', '').replace('$', '')
-            cleaned_texts.append(token)
+            token = token.replace(':', '').replace(',', '').replace('$', '')  
+            cleaned_texts.append(token.strip())
+
         return cleaned_texts
-    
+
     df['texts'] = df['texts'].apply(lambda x: clean_text_tokens(x) if isinstance(x, list) else [])
-    merged_df = df.groupby('Entity', as_index=False).agg({
-        'texts': lambda x: list(set(sum(x, []))),
-        **{col: 'first' for col in df.columns if col not in ['Entity', 'texts']}
+    df['Code'] = df['texts'].apply(lambda x: ' '.join(x))  
+    df['Code'] = df['Code'].apply(lambda x: re.sub(r'/\*.*?\*/|//.*', '', x, flags=re.DOTALL))  # Remove comments
+    df['Code'] = df['Code'].apply(lambda x: x.replace('\n', ' ').replace('\r', ' ').replace('\t', ' '))  # Normalize whitespace
+    df['Code'] = df['Code'].apply(lambda x: re.sub(r'[^a-zA-Z0-9\s.]', '', x))  # Remove non-alphanumeric characters except periods
+    dff = df.groupby('Entity', as_index=False).agg({
+        'Code': 'first',  
+        **{col: 'first' for col in df.columns if col not in ['Entity', 'texts', 'Code']}
     })
-    return merged_df
+
+    return dff
 
 def get_module(df, labels):
     df = df.copy()
     df['Module'] = None
+
     for _, row in labels.iterrows():
-        file_pattern = re.escape(row['Entity'])
+        file_pattern = row['Entity']
         module = row['Module']
-        df.loc[df['Entity'].str.contains(file_pattern, regex=True, na=False), 'Module'] = module
+        matched_rows = df['Entity'].str.contains(file_pattern, regex=True, na=False)
+        num_matches = matched_rows.sum()
+
+        print(f"Number of matches for {module}: {num_matches}")
+
+        if num_matches > 0:
+            df.loc[matched_rows, 'Module'] = module
+    df = df[~df.Module.isna()]
+    df['File_ID'] = range(1, len(df) + 1)
+    df.rename(columns={'texts': 'Code'}, inplace=True)
+    file_id_map = dict(zip(df['Entity'], df['File_ID']))
     
-    dff = df.copy()
-    dff['File_ID'] = range(1, len(dff) + 1)
-    dff.rename(columns={'texts': 'Code'}, inplace=True)
-    dff = dff[~dff.Module.isna()]
-    file_id_map = dict(zip(dff['Entity'], dff['File_ID']))
-    dff = dff[['File_ID', 'File', 'Entity', 'Code', 'Module']]
-    
-    return dff, file_id_map
+    return df[['File_ID', 'File', 'Entity', 'Code', 'Module']], file_id_map
+
+
 
 def get_dependencies(file_id_map, df, df_dep, architecture):
     df_dep = df_dep.copy()
@@ -203,24 +216,27 @@ def generate_Graph(df, dep):
 
 
 def main(labels_path, json_path, dataset_name):
+    labels_path = os.path.abspath(labels_path)
+    json_path = os.path.abspath(json_path)
 
+    print(f"📂 Processing {dataset_name}...")
     architecture, labels, root = load_labels(labels_path)
+
     df = read_json(json_path)
     df = cleaning(df, root)
     df_dep = extract_dependencies(df)
-    df = clean_and_merge_entities(df)
+    df = clean_code(df)
     df, file_id_map = get_module(df, labels)
     df_dep = get_dependencies(file_id_map, df, df_dep, architecture)
     df = generate_Graph(df, df_dep)
-    
-    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-    processed_dir = os.path.join(base_dir, "data", "processed")
+
+    processed_dir = os.path.join("data", "processed")
     os.makedirs(processed_dir, exist_ok=True)
 
-    # Save processed data in the processed directory
     df.to_csv(os.path.join(processed_dir, f'df_{dataset_name}.csv'), index=False)
     df_dep.to_csv(os.path.join(processed_dir, f'dep_{dataset_name}.csv'), index=False)
-    print(f"Processing complete. Results saved in '{processed_dir}'.")
+
+    print(f"✅ Processing complete: {dataset_name}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process JSON and labels files.")
