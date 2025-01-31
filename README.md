@@ -2,9 +2,6 @@
 
 This repository provides a framework for mapping source code entities to architectural modules using Graph Convolutional Networks (GCNs). This is particularly useful for automating static architecture compliance checking. The repository contains preprocessing code for datasets and the ability to train and evaluate Graph Convolutional Networks (GCNs), Relational Graph Convolutional Networks (RGCNs), and Naïve Bayes models.
 
-## Project Structure
-
-GCNCodeMap/ ├── data/ # Contains processed and raw datasets │ ├── processed/ │ └── raw/ ├── graphs/ # Graph construction code ├── models/ # Models like GCN, RGCN ├── notebooks/ # Jupyter notebooks (for experimentation, tutorials) ├── preprocessing/ # Code for data preprocessing ├── results/ # Directory to save results from experiments ├── utils/ # Utility functions 
 
 ## Setup
 
@@ -12,7 +9,7 @@ GCNCodeMap/ ├── data/ # Contains processed and raw datasets │ ├── 
 
 1. Clone the repository:
 
-   git clone https://github.com/yourusername/GCN-CodeMapping.git  
+   git clone https://github.com/sse-lnu/GCN-SAEroCon25.git  
    cd GCN-CodeMapping
 
 2. Install the dependencies using the requirements.txt:
