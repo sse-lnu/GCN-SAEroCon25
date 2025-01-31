@@ -4,16 +4,7 @@ This repository provides a framework for mapping source code entities to archite
 
 ## Project Structure
 
-GCNCodeMap/
-- data/                    # Contains processed and raw datasets
-- graphs/                  # Graph construction code
-- models/                  # Models like GCN, RGCN
-- notebooks/               # Jupyter notebooks (for experimentation, tutorials)
-- preprocessing/           # Code for data preprocessing
-- results/                 # Directory to save results from experiments
-- utils/                   # Utility functions
-- requirements.txt         # List of dependencies
-- README.md                # This file
+GCNCodeMap/ ├── data/ # Contains processed and raw datasets │ ├── processed/ │ └── raw/ ├── graphs/ # Graph construction code ├── models/ # Models like GCN, RGCN ├── notebooks/ # Jupyter notebooks (for experimentation, tutorials) ├── preprocessing/ # Code for data preprocessing ├── results/ # Directory to save results from experiments ├── utils/ # Utility functions 
 
 ## Setup
 
@@ -26,8 +17,9 @@ GCNCodeMap/
 
 2. Install the dependencies using the requirements.txt:
 
+```bash
    pip install -r requirements.txt
-
+```
 ---
 
 ## Preprocessing
