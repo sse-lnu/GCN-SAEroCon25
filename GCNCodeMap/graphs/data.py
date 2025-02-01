@@ -79,7 +79,7 @@ class DataNB():
         return ' '.join(combined_texts)
 
     def generate_split(self, q_threshold=0.3, split_ratio=0.05):
-        centrality_values = self.df["Closeness_Cenytrality"]
+        centrality_values = self.df["Closeness_Centrality"]
         labels = self.Y
         all_indices = np.arange(len(labels))
 
@@ -107,7 +107,7 @@ class DataNB():
         return train_indices, test_indices
     
 
-    ########### Homogeneous Data #############
+########### Homogeneous Data #############
 class HomogeneousData(Data):
     def __init__(self, df, df_dep):
         super().__init__()
@@ -115,7 +115,6 @@ class HomogeneousData(Data):
         self.df_dep = df_dep.copy()
         self.label_encoder = None
         self.num_classes = None
-        self.relations = None
         self.process_data()
 
     def process_data(self):
@@ -137,9 +136,7 @@ class HomogeneousData(Data):
         self.df_dep.dropna(subset=['Source_ID', 'Target_ID'], inplace=True)
 
     def _create_node_features_and_labels(self):
-        self.df['Code'] = self.df['Code'].fillna('') + ' ' + self.df['File'].fillna('')
-        self.df['Code'] = self.df['Code'].str.replace('/', ' ')
-        self.df['Code'] = self.df['Code'].str.lower()
+        self.df['Code'] = self.df['Code'].fillna('')
         code_vectorizer = CountVectorizer(binary=True)
         code_matrix = code_vectorizer.fit_transform(self.df['Code'])
         code_vectors = code_matrix.toarray()
@@ -161,7 +158,6 @@ class HomogeneousData(Data):
             torch.tensor(row[dependency_encoded.columns].tolist(), dtype=torch.float)
             for _, row in self.df_dep.iterrows()
         ])
-        self.relations = list(self.df_dep.Dependency_Type.unique())
 
     def generate_split(self, q_threshold=0.3, split_ratio=0.05):
         device = self.y.device
@@ -170,27 +166,13 @@ class HomogeneousData(Data):
         all_nodes = torch.arange(len(labels), device=device)
         threshold_value = torch.quantile(centrality_values, q_threshold)
         high_centrality_indices = all_nodes[centrality_values >= threshold_value]
-
-        num_train_samples = max(1, int(split_ratio * len(all_nodes)))
-        train_indices = torch.tensor(random.sample(high_centrality_indices.tolist(), min(len(high_centrality_indices), num_train_samples)), dtype=torch.long, device=device)
-
-        for cls in torch.unique(labels):
-            class_indices = all_nodes[labels == cls]
-            if not any(labels[train_indices] == cls):
-                random_entity = class_indices[torch.randint(len(class_indices), (1,))]
-                train_indices = torch.cat((train_indices, random_entity))
-
-        if len(train_indices) < num_train_samples:
-            remaining_candidates = list(set(all_nodes.tolist()) - set(train_indices.tolist()))
-            additional_indices = torch.tensor(random.sample(remaining_candidates, num_train_samples - len(train_indices)), dtype=torch.long, device=device)
-            train_indices = torch.cat((train_indices, additional_indices))
-        elif len(train_indices) > num_train_samples:
-            train_indices = train_indices[:num_train_samples]
-
+        num_train_samples = max(5, int(split_ratio * len(high_centrality_indices)))
+        train_indices = torch.tensor(random.sample(high_centrality_indices.tolist(), num_train_samples), dtype=torch.long, device=device)
         test_indices = torch.tensor(list(set(all_nodes.tolist()) - set(train_indices.tolist())), dtype=torch.long, device=device)
+
         return train_indices[torch.randperm(len(train_indices))], test_indices[torch.randperm(len(test_indices))]
 
-    ####### HeteroGenous Data ############
+###### HeteroGeneus Data ############
 
 class HeterogeneousData(HeteroData):
     def __init__(self, df, df_dep):
