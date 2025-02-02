@@ -44,7 +44,7 @@ def main():
     results_dir = 'results'
     os.makedirs(results_dir, exist_ok=True)
 
-    print("\n✅ **Loading Data...**")
+    print("\n **Loading Data...**")
     df = pd.read_csv(args.data_path)
     df_dep = pd.read_csv(args.dependencies_path)
 
@@ -52,28 +52,28 @@ def main():
     print(f"Using device: {device}")
 
     if args.model_type == "rgcn":
-        print(f"✅ Creating Heterogeneous Dataset for ...")
+        print(f" Creating Heterogeneous Dataset for ...")
         data = HeterogeneousData(df, df_dep)
         data = data.to(device)
 
     elif args.model_type == "gcn":
-        print(f"✅ Creating Homogeneous Dataset for ...")
+        print(f" Creating Homogeneous Dataset for ...")
         data = HomogeneousData(df, df_dep)
         data = data.to(device)
 
     elif args.model_type == "nb":
-        print(f"✅ Creating Naïve Bayes Dataset for...")
+        print(f" Creating Naïve Bayes Dataset for...")
         data = DataNB(df, df_dep)
 
     else:
-        raise ValueError("❌ Invalid model type!")
+        raise ValueError("Invalid model type!")
 
     results_dir = os.path.join('results', args.model_type, args.data_name)
     os.makedirs(results_dir, exist_ok=True)
     all_metrics = []  
 
     for run in range(args.num_runs):
-        print(f"\n🔄 **Run {run + 1}/{args.num_runs}**")
+        print(f"\n**Run {run + 1}/{args.num_runs}**")
 
         train_indices, test_indices = data.generate_split(q_threshold = args.q_threshold, split_ratio=args.split_ratio)
         
@@ -130,10 +130,10 @@ def main():
     metrics_df.to_csv(final_path, index=False)
     print(f"Saved combined results at {final_path}")
 
-    print("\n✅ **Training & Evaluation Completed!")
+    print("\n**Training & Evaluation Completed!")
 
 
-print("\n✅ **Training & Evaluation Completed!")
+print("\n**Training & Evaluation Completed!")
 
 if __name__ == "__main__":
     main()

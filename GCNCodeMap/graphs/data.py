@@ -136,7 +136,7 @@ class HomogeneousData(Data):
         self.df_dep.dropna(subset=['Source_ID', 'Target_ID'], inplace=True)
 
     def _create_node_features_and_labels(self):
-        self.df['Code'] = self.df['Code'].fillna('')
+        self.df['Code'] = self.df['Code'].fillna('') +' ' + self.df['File'].str.replace('/', ' ')
         code_vectorizer = CountVectorizer(binary=True)
         code_matrix = code_vectorizer.fit_transform(self.df['Code'])
         code_vectors = code_matrix.toarray()
