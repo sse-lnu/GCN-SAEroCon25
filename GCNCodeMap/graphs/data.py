@@ -85,6 +85,11 @@ class DataNB():
 
         threshold_value = np.quantile(centrality_values, q_threshold)
         high_centrality_indices = all_indices[centrality_values >= threshold_value]
+
+        # Filter high centrality entities that follow the intended architecture
+        allowed_entities = set(self.df_dep.loc[self.df_dep["Allowed"] != 0, ["Source", "Target"]].values.flatten())
+        allowed_indices = [i for i in high_centrality_indices if self.df.iloc[i]["Entity"] in allowed_entities]
+
         num_train_samples = max(1, int(split_ratio * len(all_indices)))
         train_indices = np.random.choice(high_centrality_indices, min(len(high_centrality_indices), num_train_samples), replace=False).tolist()
         for cls in np.unique(labels):
@@ -94,7 +99,7 @@ class DataNB():
                 train_indices.append(random_entity)
 
         if len(train_indices) < num_train_samples:
-            remaining_candidates = list(set(all_indices) - set(train_indices))
+            remaining_candidates = list(set(allowed_indices) - set(train_indices))
             additional_indices = np.random.choice(remaining_candidates, num_train_samples - len(train_indices), replace=False).tolist()
             train_indices.extend(additional_indices)
         elif len(train_indices) > num_train_samples:
@@ -166,8 +171,14 @@ class HomogeneousData(Data):
         all_nodes = torch.arange(len(labels), device=device)
         threshold_value = torch.quantile(centrality_values, q_threshold)
         high_centrality_indices = all_nodes[centrality_values >= threshold_value]
-        num_train_samples = max(5, int(split_ratio * len(high_centrality_indices)))
-        train_indices = torch.tensor(random.sample(high_centrality_indices.tolist(), num_train_samples), dtype=torch.long, device=device)
+
+        allowed_entities = set(self.df_dep.loc[self.df_dep["Allowed"] != 0, ["Source", "Target"]].values.flatten())
+        allowed_indices = torch.tensor(
+            [i for i in high_centrality_indices.tolist() if self.df.iloc[i]["Entity"] in allowed_entities],
+            dtype=torch.long, device=device
+        )
+        num_train_samples = max(5, int(split_ratio * len(allowed_indices)))
+        train_indices = torch.tensor(random.sample(allowed_indices.tolist(), num_train_samples), dtype=torch.long, device=device)
         test_indices = torch.tensor(list(set(all_nodes.tolist()) - set(train_indices.tolist())), dtype=torch.long, device=device)
 
         return train_indices[torch.randperm(len(train_indices))], test_indices[torch.randperm(len(test_indices))]
@@ -231,9 +242,14 @@ class HeterogeneousData(HeteroData):
         all_nodes = torch.arange(len(labels), device=device)
         threshold_value = torch.quantile(centrality_values, q_threshold)
         high_centrality_indices = all_nodes[centrality_values >= threshold_value]
-        num_train_samples = max(5, int(split_ratio * len(high_centrality_indices)))
 
-        train_indices = torch.tensor(random.sample(high_centrality_indices.tolist(), num_train_samples), dtype=torch.long, device=device)
+        allowed_entities = set(self.df_dep.loc[self.df_dep["Allowed"] != 0, ["Source", "Target"]].values.flatten())
+        allowed_indices = torch.tensor(
+            [i for i in high_centrality_indices.tolist() if self.df.iloc[i]["Entity"] in allowed_entities],
+            dtype=torch.long, device=device
+        )
+        num_train_samples = max(5, int(split_ratio * len(allowed_indices)))
+        train_indices = torch.tensor(random.sample(allowed_indices.tolist(), num_train_samples), dtype=torch.long, device=device)
         test_indices = torch.tensor(list(set(all_nodes.tolist()) - set(train_indices.tolist())), dtype=torch.long, device=device)
 
         return train_indices[torch.randperm(len(train_indices))], test_indices[torch.randperm(len(test_indices))]

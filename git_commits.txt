@@ -1,0 +1,23 @@
+# 1. Initialize Git (only needed if it's a new repo)
+git init
+
+# 2. Set up remote repository (only needed once)
+git remote add origin <your-repo-url>
+
+# 3. Pull latest changes (optional, but useful if you want to stay updated)
+git pull origin main --rebase
+
+# 4. Ensure .gitignore is being used (create it if it doesn’t exist)
+touch .gitignore
+echo "node_modules/" >> .gitignore  # Example: Add folders/files to ignore
+git add .gitignore
+git commit -m "Added .gitignore"
+
+# 5. Stage only modified and deleted files (ignores untracked files)
+git add -u
+
+# 6. Commit changes
+git commit -m "Your commit message"
+
+# 7. Force push changes (overwrite remote history)
+git push --force origin main

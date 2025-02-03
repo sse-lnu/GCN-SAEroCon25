@@ -105,7 +105,7 @@ def main():
                                    epochs=args.epochs,
                                    lr = args.lr,
                                    max_norm=args.max_norm,
-                                   lambda_t=args.lambda_t,
+                                   lambda_t=float(args.lambda_t) if isinstance(args.lambda_t, (int, float)) else args.lambda_t,
                                    verbose=args.verbose
             )
 
@@ -117,7 +117,7 @@ def main():
                 Y=data.Y,
                 initial_mapping_indices=train_indices,
                 orphans_indices=test_indices,
-                lambda_t=args.lambda_t,
+                lambda_t=float(args.lambda_t) if isinstance(args.lambda_t, (int, float)) else args.lambda_t,
                 verbose=args.verbose
             )
             all_metrics.append({**metrics, 'run': run + 1})

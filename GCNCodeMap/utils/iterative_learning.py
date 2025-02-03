@@ -208,12 +208,12 @@ def nb_learning(X, Y, initial_mapping_indices, orphans_indices, lambda_t=None, t
             true_labels = Y[mapped_entity_indices]
 
             # Calculate metrics
-            current_f1_micro = f1_score(true_labels, mapped_predicted_labels, average='micro')
-            current_f1_macro = f1_score(true_labels, mapped_predicted_labels, average='macro')
-            current_precision_micro = precision_score(true_labels, mapped_predicted_labels, average='micro')
-            current_precision_macro = precision_score(true_labels, mapped_predicted_labels, average='macro')
-            current_recall_micro = recall_score(true_labels, mapped_predicted_labels, average='micro')
-            current_recall_macro = recall_score(true_labels, mapped_predicted_labels, average='macro')
+            current_f1_micro = f1_score(true_labels, mapped_predicted_labels, average='micro', zero_division=1)
+            current_f1_macro = f1_score(true_labels, mapped_predicted_labels, average='macro',zero_division=1)
+            current_precision_micro = precision_score(true_labels, mapped_predicted_labels, average='micro',zero_division=1)
+            current_precision_macro = precision_score(true_labels, mapped_predicted_labels, average='macro',zero_division=1)
+            current_recall_micro = recall_score(true_labels, mapped_predicted_labels, average='micro',zero_division=1)
+            current_recall_macro = recall_score(true_labels, mapped_predicted_labels, average='macro',zero_division=1)
 
             metrics_history.append({
                 "iteration": iteration + 1,
