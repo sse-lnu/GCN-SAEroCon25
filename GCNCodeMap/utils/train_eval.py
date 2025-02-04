@@ -74,7 +74,7 @@ def evaluate(model, data, orphans, lambda_t=None, iteration=None):
 
         if lambda_t is not None:
             mean_confidence = confidence_scores.mean()
-            std_confidence = confidence_scores.std()
+            std_confidence = confidence_scores.std() if confidence_scores.numel() > 1 else 0.0
             if callable(lambda_t):
                 threshold = lambda_t(iteration)
                 confidence_threshold = (mean_confidence + std_confidence) * threshold
@@ -94,4 +94,3 @@ def evaluate(model, data, orphans, lambda_t=None, iteration=None):
         low_conf_indices = orphans[~high_conf_mask]
 
         return high_conf_indices, high_conf_labels, low_conf_indices, confidence_threshold
-
