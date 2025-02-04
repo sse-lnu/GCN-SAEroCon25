@@ -1,0 +1,27 @@
+# Example runs for preprocessing
+python preprocessing/preprocess.py --labels data/raw/prom_labels.txt --json data/raw/prom.json --name prom
+python preprocessing/preprocess.py --labels data/raw/jabref_labels.txt --json data/raw/jabref.json --name jabref
+python preprocessing/preprocess.py --labels data/raw/teammates_labels.txt --json data/raw/teammates.json --name teammates
+python preprocessing/preprocess.py --labels data/raw/lucene_labels.txt --json data/raw/lucene.json --name lucene
+python preprocessing/preprocess.py --labels data/raw/commons-imaging_labels.txt --json data/raw/commons-imaging.json --name commons-imaging
+python preprocessing/preprocess.py --labels data/raw/sweethome3d_labels.txt --json data/raw/sweethome3d.json --name sweethome3d
+python preprocessing/preprocess.py --labels data/raw/argouml_labels.txt --json data/raw/argouml.json --name argouml
+python preprocessing/preprocess.py --labels data/raw/ant_labels.txt --json data/raw/ant.json --name ant
+
+
+### how to run the model in bash 
+
+## GCN models
+python utils/main.py --model_type gcn --data_name prom --data_path data/processed/df_prom.csv --dependencies_path data/processed/dep_prom.csv --lambda_t "lambda t: 0.9 if t < 3 else 1" --split_ratio 0.05 --hidden_channels 16 --dropout 0.1 --gcn_embed_dim 128 --num_layers 1 --verbose True --num_runs 5
+
+## RGCN models
+python utils/main.py --model_type rgcn --data_name prom --data_path data/processed/df_prom.csv --dependencies_path data/processed/dep_prom.csv --lambda_t 0.8 --split_ratio 0.03 --hidden_channels 16 --dropout 0.1 --gcn_embed_dim 128 --num_layers 1 --verbose True --num_runs 10
+python utils/main.py --model_type rgcn --data_name teammates --data_path data/processed/df_teammates.csv --dependencies_path data/processed/dep_teammates.csv --lambda_t 0.8 --split_ratio 0.03 --hidden_channels 16 --dropout 0.1 --gcn_embed_dim 128 --num_layers 1 --verbose True --num_runs 10
+python utils/main.py --model_type rgcn --data_name jabref --data_path data/processed/df_jabref.csv --dependencies_path data/processed/dep_jabref.csv --lambda_t 0.8 --split_ratio 0.03 --hidden_channels 16 --dropout 0.1 --gcn_embed_dim 128 --num_layers 1 --verbose True --num_runs 10
+
+## NB models
+python utils/main.py --model_type nb --data_name prom  --data_path  data/processed/df_prom.csv --dependencies_path data/processed/dep_prom.csv --epochs 50 --lr 0.001 --max_norm 5 --lambda_t 0.8 --split_ratio 0.05 --q_threshold 0.3 --num_runs 2 --verbose True
+python utils/main.py --model_type nb --data_name jabref --data_path  data/processed/df_jabref.csv --dependencies_path data/processed/dep_jabref.csv --epochs 50 --lr 0.001 --max_norm 5 --lambda_t 0.8 --split_ratio 0.05 --q_threshold 0.3 --num_runs 10 --verbose True
+
+#####################
+git add --force .gitignore
