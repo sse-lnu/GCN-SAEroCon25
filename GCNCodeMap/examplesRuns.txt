@@ -20,5 +20,5 @@ python utils/main.py --model_type rgcn --data_name teammates --data_path data/pr
 python utils/main.py --model_type rgcn --data_name jabref --data_path data/processed/df_jabref.csv --dependencies_path data/processed/dep_jabref.csv --lambda_t 0.8 --split_ratio 0.03 --hidden_channels 16 --dropout 0.1 --gcn_embed_dim 128 --num_layers 1 --verbose True --num_runs 10
 
 ## NB models
-python utils/main.py --model_type nb --data_name prom  --data_path  data/processed/df_prom.csv --dependencies_path data/processed/dep_prom.csv --epochs 50 --lr 0.001 --max_norm 5 --lambda_t  "lambda t: 0.25 if t < 3 else 1" --split_ratio 0.05 --q_threshold 0.3 --num_runs 2 --verbose True
-python utils/main.py --model_type nb --data_name jabref --data_path  data/processed/df_jabref.csv --dependencies_path data/processed/dep_jabref.csv --epochs 50 --lr 0.001 --max_norm 5 --lambda_t  "lambda t: 0.25 if t < 3 else 1" --split_ratio 0.05 --q_threshold 0.3 --num_runs 10 --verbose True
+python utils/main.py --model_type nb --data_name prom  --data_path  data/processed/df_prom.csv --dependencies_path data/processed/dep_prom.csv --lambda_t  "lambda t: 0.25 if t < 3 else 1" --split_ratio 0.05 --q_threshold 0.3 --num_runs 10 --verbose True
+python utils/main.py --model_type nb --data_name jabref --data_path  data/processed/df_jabref.csv --dependencies_path data/processed/dep_jabref.csv --lambda_t  "lambda t: 0.25 if t < 3 else 1" --split_ratio 0.05 --q_threshold 0.3 --num_runs 10 --verbose True
