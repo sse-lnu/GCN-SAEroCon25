@@ -166,7 +166,7 @@ def nb_learning(X, Y, initial_mapping_indices, orphans_indices, lambda_t=None, t
         # Determine the confidence threshold
         if lambda_t is not None:
             mean_confidence = confidence_scores.mean()
-            std_confidence = confidence_scores.std()
+            std_confidence = confidence_scores.std() if confidence_scores.size > 1 else 0.0
             threshold = lambda_t if isinstance(lambda_t, float) else lambda_t(iteration)
             confidence_threshold = mean_confidence + std_confidence * threshold
             confidence_threshold = min(confidence_threshold, 0.98)
