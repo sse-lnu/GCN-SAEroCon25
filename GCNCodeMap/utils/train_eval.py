@@ -22,11 +22,9 @@ def train(model, data, train_indices, optimizer, loss_fn, max_norm=5):
     train_indices = train_indices.to(device)
 
     if hasattr(data, "x_dict") and hasattr(data, "edge_index_dict"):  # RGCN
-        data['entity'].y = data['entity'].y.to(device)
         out = model(data.x_dict, data.edge_index_dict)
         loss = loss_fn(out[train_indices], data['entity'].y[train_indices])
     else:  # GCN
-        data.y = data.y.to(device)
         out = model(data.x, data.edge_index)
         loss = loss_fn(out[train_indices], data.y[train_indices])
 
