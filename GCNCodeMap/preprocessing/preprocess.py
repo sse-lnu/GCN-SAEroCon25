@@ -157,9 +157,6 @@ def get_module(df, labels):
         module = row['Module']
         matched_rows = df['Entity'].str.contains(file_pattern, regex=True, na=False)
         num_matches = matched_rows.sum()
-
-        print(f"Number of matches for {module}: {num_matches}")
-
         if num_matches > 0:
             df.loc[matched_rows, 'Module'] = module
     df = df[~df.Module.isna()]
@@ -219,7 +216,7 @@ def main(labels_path, json_path, dataset_name):
     labels_path = os.path.abspath(labels_path)
     json_path = os.path.abspath(json_path)
 
-    print(f"📂 Processing {dataset_name}...")
+    print(f"Processing {dataset_name}...")
     architecture, labels, root = load_labels(labels_path)
 
     df = read_json(json_path)
@@ -233,10 +230,10 @@ def main(labels_path, json_path, dataset_name):
     processed_dir = os.path.join("data", "processed")
     os.makedirs(processed_dir, exist_ok=True)
 
-    df.to_csv(os.path.join(processed_dir, f'df_{dataset_name}.csv'), index=False)
+    df.to_csv(os.path.join(processed_dir, f'{dataset_name}_data.csv'), index=False)
     df_dep.to_csv(os.path.join(processed_dir, f'dep_{dataset_name}.csv'), index=False)
 
-    print(f"✅ Processing complete: {dataset_name}")
+    print(f"Processing complete: {dataset_name}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process JSON and labels files.")
