@@ -25,17 +25,11 @@ class DataNB():
         self._generate_embeddings()
 
     def _preprocess_dataframes(self):
-        """
-        Preprocesses df and df_dep by mapping Source_File and Target_File from df.
-        """
         self.df = self.df[~self.df.Module.isna()]
         self.df_dep = self.df_dep[self.df_dep['Source'].isin(self.df['Entity']) & self.df_dep['Target'].isin(self.df['Entity'])]
         self.df.fillna('', inplace=True)
         valid_ents = set(self.df['Entity'])
         self.df_dep = self.df_dep[self.df_dep['Source'].isin(valid_ents) & self.df_dep['Target'].isin(valid_ents)]
-        entity_to_file = self.df.set_index('Entity')['File'].to_dict()
-        self.df_dep['Source_File'] = self.df_dep['Source'].map(entity_to_file)
-        self.df_dep['Target_File'] = self.df_dep['Target'].map(entity_to_file)
 
     def _generate_embeddings(self):
         """
@@ -54,25 +48,20 @@ class DataNB():
         self.num_classes = len(np.unique(self.Y))
 
     def _generate_cda_text(self, row):
-        """
-        Creates CDA text for a given entity by combining dependency text from df_dep
-        where the entity appears as Source or Target.
-        """
         entity = row['Entity']
-
         # Find matches where Entity is the Source
         source_matches = self.df_dep[self.df_dep['Source'] == entity]
         source_texts = [
-            f"{match['Source_File']} {match['Dependency_Type']} {match['Target_File']}"
+            f"{match['Source']} {match['Dependency_Type']} {match['Target']}"
             for _, match in source_matches.iterrows()
-            if pd.notna(match['Source_File']) and pd.notna(match['Target_File'])
+            if pd.notna(match['Source']) and pd.notna(match['Target'])
         ]
         # Find matches where Entity is the Target
         target_matches = self.df_dep[self.df_dep['Target'] == entity]
         target_texts = [
-            f"{match['Source_File']} {match['Dependency_Type']} {match['Target_File']}"
+            f"{match['Source']} {match['Dependency_Type']} {match['Target']}"
             for _, match in target_matches.iterrows()
-            if pd.notna(match['Source_File']) and pd.notna(match['Target_File'])
+            if pd.notna(match['Source']) and pd.notna(match['Target'])
         ]
 
         combined_texts = source_texts + target_texts
@@ -111,7 +100,6 @@ class DataNB():
 
         return train_indices, test_indices
     
-
 ########### Homogeneous Data #############
 class HomogeneousData(Data):
     def __init__(self, df, df_dep):
