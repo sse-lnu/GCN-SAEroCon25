@@ -39,8 +39,7 @@ def main():
     parser.add_argument("--verbose", type=bool, default=True, help="Set verbosity (default: True)")
 
     args = parser.parse_args()
-
-
+    
     results_dir = 'results'
     os.makedirs(results_dir, exist_ok=True)
 
@@ -48,8 +47,9 @@ def main():
     df = pd.read_csv(args.data_path)
     df_dep = pd.read_csv(args.dependencies_path)
 
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f"Using device: {device}")
+    if args.model_type in ['gcn', 'rgcn']:
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        print(f"Using device: {device}")
 
     if args.model_type == "rgcn":
         print(f" Creating Heterogeneous Dataset for ...")
