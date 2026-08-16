@@ -1,0 +1,89 @@
+{
+  "models_to_run": ["GCN", "GAT", "MLP"],
+
+  "model_params": {
+    "GCN": {
+      "hidden":     256,  
+      "num_layers": 2,
+      "dropout":    0.01
+    },
+    "GAT": {
+      "hidden":     256,
+      "num_layers": 2,
+      "heads":      4,
+      "dropout":    0.01
+    },
+    "MLP": {
+      "hidden":  256,
+      "dropout": 0.0
+    }
+  },
+
+  "training": {
+    "lr":                 0.001,
+    "threshold":          0.95,
+    "warmup_epochs":      100,
+    "self_train_rounds":  4,
+    "self_train_epochs":  30
+  },
+
+  "active_ablation": "hetero_directed",
+
+  "ablations": [
+    {
+      "name":              "hetero_directed",
+      "mode":              "hetero",
+      "directed":          true,
+      "reverse_relations": false
+    },
+    {
+      "name":              "homo_directed",
+      "mode":              "homo",
+      "directed":          true,
+      "reverse_relations": false
+    },
+    {
+      "name":              "hetero_undirected",
+      "mode":              "hetero",
+      "directed":          false,
+      "reverse_relations": false
+    },
+    {
+      "name":              "hetero_reversed",
+      "mode":              "hetero",
+      "directed":          true,
+      "reverse_relations": true
+    },
+    {
+      "name":              "hetero_directed_1layer",
+      "mode":              "hetero",
+      "directed":          true,
+      "reverse_relations": false,
+      "num_layers":        1
+    }
+  ],
+
+  "datasets": "all",
+  "dataset_overrides": {
+    "chromium": { "runs": 5 }
+  },
+  "default_runs": 200,
+  "flush_every":  2,
+  "results_dir":  "results",
+  "cache_dir":    "cache/w2v",
+
+  "nba": {
+    "num_runs":                200,
+    "flush_every":               5,
+    "split_ratio":             0.05,
+    "min_train_points":          30,
+    "max_train_points":         200,
+    "mapping_threshold":        0.9,
+    "use_cda":                 true,
+    "use_node_text":           true,
+    "use_node_name":           true,
+    "use_arch_component_name": true,
+    "word_count":             false,
+    "n_workers":                 8
+  }
+}

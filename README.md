@@ -1,46 +1,88 @@
-# GCN-CodeMapping
+# C2A Graph — Code-to-Architecture Mapping
 
-This repository provides a framework for mapping source code entities to architectural modules using Graph Convolutional Networks (GCNs). This is particularly useful for automating static architecture compliance checking. The repository contains preprocessing code for datasets and the ability to train and evaluate Graph Convolutional Networks (GCNs), Relational Graph Convolutional Networks (RGCNs), and Naïve Bayes models.
+Semi-supervised node classification pipeline for mapping source files to architectural modules using Graph Neural Networks (GCN, GAT) and an MLP baseline, with an iterative self-training loop. Includes a Naive Bayes (NBA) baseline for comparison.
 
-## Preprocessing
-To preprocess the data, use the preprocess.py script with the following command:
+This repository is the extended version of the SAEroCon 2025 paper "Graph Convolutional Networks for Mapping Source Code Entities to Architectural Modules." The original `GCNCodeMap/` pipeline had a self-training bug (pseudo-labeled entities were retrained on their true labels instead of the model's own predictions, leaking test labels into training) and only ever reported metrics on the confidently-mapped subset, never the full test set. This extension replaces that pipeline with a corrected, expanded one (`c2a_mapping/`) covering more systems, GAT in addition to GCN, and edge-direction/depth ablations.
 
-```bash
-   python preprocessing/preprocess.py --labels data/raw/<dataset_name>_labels.txt --json data/raw/<dataset_name>.json --name <dataset_name>
-```
-
-## Running Experiments
-
-To train and evaluate the models, use the main.py script with the following arguments:
-
-### Command for Running GCN/RGCN Experiments:
-
-### Arguments:
-
-- `--model_type`: Type of model to use. Choose from `gcn`, `rgcn` (Relational GCN), or `nb` (Naïve Bayes).
-- `--data_name`: Name of the dataset (e.g., `ant`, `prom`).
-- `--data_path`: Path to the preprocessed data (CSV format).
-- `--dependencies_path`: Path to the dependency CSV file.
-- `--epochs`: Number of epochs for training (default is 50).
-- `--lr`: Learning rate (default is 0.001).
-- `--max_norm`: Max norm for gradient clipping (default is 5).
-- `--lambda_t`: Threshold scaling factor for iterative learning (can be a float, int, or lambda function).
-- `--split_ratio`: Train-test split ratio (default is 0.05).
-- `--q_threshold`: Quantile threshold for centrality filtering (default is 0.3).
-- `--hidden_channels`: Number of hidden channels for the GCN model.
-- `--dropout`: Dropout rate (default is 0.2).
-- `--gcn_embed_dim`: BoW vectors embedding for GCN variants(default is 128).
-- `--num_layers`: Number of hidden layers (default is 1).
-- `--num_runs`: Number of experiments to run (default is 2).
-- `--verbose`: Set verbosity for the training and evaluation process.
-
-### Example command for RGCN:
-
-```bash
-python utils/main.py --model_type <model_type> --data_name <dataset_name> --data_path data/processed/<dataset_name>.csv --dependencies_path data/processed/dependencies_<dataset_name>.csv --epochs 50 --lr 0.001 --max_norm 5 --lambda_t 0.8 --split_ratio 0.05 --q_threshold 0.3 --hidden_channels 16 --dropout 0.2 --gcn_embed_dim 128 --num_layers 1 --num_runs 2 --verbose True
-```
 ---
 
-## Results
+## Repository Layout
 
-The results of the experiments will be saved in the `results/` directory in CSV format. This includes metrics like F1 score, Precision, Recall, and other evaluation metrics for each model and dataset. The results will be saved in CSV format for easy analysis.
+```
+c2a_mapping/
+├── baselines/                       # NBA (Naive Bayes) baseline
+├── data/                            # Sample datasets (Bash, JabRef, Teammates)
+├── data_pipeline/                   # Feature extraction and graph construction
+├── evaluation/                      # Metric helpers
+├── experiments/                     # config.json + GNN experiment runner
+├── models/                          # GCN, GAT, MLP definitions
+├── training/                        # Self-training loop
+├── fixed_splits_experiment.ipynb    # Main experiment notebook (GCN/GAT/MLP/NBA, shared splits)
+└── requirements.txt
+```
+
+---
+
+## Installation
+
+```bash
+cd c2a_mapping/
+pip install -r requirements.txt
+```
+
+---
+
+## Data
+
+The `c2a_mapping/data/` directory contains three sample systems (Bash, JabRef, Teammates). To add more systems, place their CSV files there:
+
+```
+c2a_mapping/data/
+├── {stem}.csv         # columns: File, Entity, Module, Member_Name
+└── {stem}_deps.csv    # columns: Source_File, Target_File, Dependency_Type, Dependency_Count
+```
+
+---
+
+## Running GNN Experiments (GCN · GAT · MLP)
+
+```bash
+cd c2a_mapping/
+
+# All datasets, default config
+python experiments/run_experiments.py
+
+# Specific ablation
+python experiments/run_experiments.py --ablation homo_directed
+
+# Single dataset, quick test
+python experiments/run_experiments.py --dataset bash --runs 5
+```
+
+Results are written per model/ablation to `results/{gcn,gat}_{hetero,homo,undirected,reversed}_results.csv` and `results/mlp_results.csv`.
+
+`fixed_splits_experiment.ipynb` runs the same models against a shared set of pre-generated train/test splits, so every model in a given run sees the exact same labeled seed set — use this for paired comparisons across models.
+
+### Ablations
+
+| Name | Mode | Directed |
+|------|------|----------|
+| `hetero_directed` *(default)* | one conv per relation type | yes |
+| `homo_directed` | merged adjacency | yes |
+| `hetero_undirected` | one conv per relation type | no |
+| `hetero_reversed` | one conv per relation type, edges flipped | yes |
+| `hetero_directed_1layer` | one conv per relation type, 1 message-passing layer | yes |
+
+---
+
+## Running the NBA Baseline
+
+```bash
+cd c2a_mapping/
+
+python baselines/run_nba.py                        # all datasets
+python baselines/run_nba.py --datasets bash,jabref  # specific datasets
+python baselines/run_nba.py --runs 10               # quick test
+```
+
+Results are written to `results/nba_results.csv` (separate from GNN results). `f1_macro`/`f1_micro`/`precision_macro`/`recall_macro` are computed on the subset of entities the model mapped with confidence; the same metrics on the full test set (including forced predictions for everything below the confidence threshold) are prefixed `full_`.
