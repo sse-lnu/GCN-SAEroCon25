@@ -6,13 +6,13 @@ A semi-supervised pipeline for mapping source files to architectural modules fro
 
 ### Motivation
 
-Architecture documentation goes stale as a system evolves, and recovering the mapping by hand doesn't scale to large codebases. This pipeline infers the file-to-module mapping directly from the dependency structure and the code's own text, and — critically — it can extend a partial, incomplete mapping to unlabeled files without requiring a full ground truth for the whole system.
+Software architecture documentation tends to go stale as a system evolves, and manually recovering the file-to-module mapping does not scale to large codebases. We address this by inferring the mapping directly from the dependency structure and the code's own textual content, with an approach that can extend a partial, incomplete mapping to unlabeled files without requiring full ground truth for the entire system.
 
 ### Approach
 
 Each system is modeled as a heterogeneous, multi-relational file-dependency graph:
 - **Nodes** are source files.
-- **Edges** are typed static dependencies (e.g. calls, imports, inheritance) between files.
+- **Edges** are typed static dependencies (e.g., calls, imports, inheritance) between files.
 - **Node features** combine Word2Vec embeddings of the code's identifiers/text with a folder-location signal derived from each file's path.
 
 GCN/GAT encoders run an iterative self-training loop: warm up on a labeled seed set, then repeatedly promote high-confidence pseudo-labels and retrain. The MLP baseline uses the same features without any graph structure. NBA runs an independent Naive-Bayes-based iterative mapping for comparison.
@@ -36,10 +36,9 @@ c2a_mapping/
 
 ## Research Questions
 
-- **RQ1 — Effectiveness & Scaling** *(primary)*: how effectively does GNN-based mapping perform relative to non-graph baselines, and how does it scale?
-- **RQ2 — Dependency-graph contribution** *(secondary, still verifiable)*: what does the dependency graph contribute beyond textual features, and where does it help or hurt on a per-file basis?
-- **RQ3 — Design sensitivity**: how sensitive is the approach to modeling dependency types separately, aggregation depth, and edge direction?
-- **Mapping**: assign modules to source files, and evaluate against them if labels are available.
+- **RQ1 — Effectiveness & Scaling** *(primary)*: How effectively does GNN-based mapping perform relative to non-graph baselines, and how does it scale?
+- **RQ2 — Dependency-graph contribution** *(secondary, still verifiable)*: What does the dependency graph contribute beyond textual features, and where does it help or hurt on a per-file basis?
+- **RQ3 — Design sensitivity**: How sensitive is the approach to modeling dependency types separately, aggregation depth, and edge direction?
 
 ### RQ1 — Effectiveness & Scaling
 
@@ -93,15 +92,12 @@ Tested against `torch==2.4.0` / `torch-geometric==2.7.0`; both support CUDA or C
 
 ---
 
-## Quick Start (Sanity Check)
+## Quick Start
 
 ```bash
 cd c2a_mapping/
 python experiments/run_experiments.py --dataset bash --runs 5
 ```
-
-A small, fast dataset — should finish in well under a minute once dependencies are installed.
-
 ---
 
 ## Running Experiments
