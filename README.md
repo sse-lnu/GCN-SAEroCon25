@@ -4,8 +4,6 @@
 
 A semi-supervised pipeline for mapping source files to architectural modules from a file-level dependency graph. Two Graph Neural Network encoders — **GCN** and **GAT** — are trained with an iterative self-training loop, alongside an **MLP** baseline (features only, no graph) and an **NBA** (Naive Bayes) baseline for comparison against a non-neural method.
 
-This corrects a label-leakage bug present in an earlier version of the pipeline (`GCNCodeMap/`, since replaced): pseudo-labeled entities were previously retrained on their true labels instead of the model's own predictions. `c2a_mapping/` fixes this and reports both mapped-subset and full-test-set metrics instead of only the former.
-
 ### Motivation
 
 Architecture documentation goes stale as a system evolves, and recovering the mapping by hand doesn't scale to large codebases. This pipeline infers the file-to-module mapping directly from the dependency structure and the code's own text, and — critically — it can extend a partial, incomplete mapping to unlabeled files without requiring a full ground truth for the whole system.
