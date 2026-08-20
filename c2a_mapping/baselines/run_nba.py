@@ -35,7 +35,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from data_pipeline.datasets import discover_datasets, load_file_level, display_name, split_ratio
 from baselines.nba import (
     prepare_dataset, generate_file_split, run_iterative_nb_mapping,
-    evaluate_mapping_results, _worker_run,
+    evaluate_mapping_results, predict_mapping, _worker_run,
 )
 
 _CFG_PATH   = Path(__file__).parent.parent / "experiments" / "config.json"
@@ -113,6 +113,33 @@ def run_nba_dataset(stem, n_runs=None, n_workers=None, use_fixed_splits=True):
     return [r for r in raw if r is not None]
 
 
+def run_nba_mapping_only(stem):
+    """Predict modules for every file that doesn't already have one — no
+    evaluation, no fixed splits, no repeats. Every file with a known Module
+    is used as training data; the rest get a predicted_module."""
+    nba_cfg = _load_nba_cfg()
+    file_df, file_dep = load_file_level(stem, DATA_DIR)
+    prepared = prepare_dataset(file_df, file_dep)
+
+    config = SimpleNamespace(
+        use_cda                 = nba_cfg["use_cda"],
+        use_node_text           = nba_cfg["use_node_text"],
+        use_node_name           = nba_cfg["use_node_name"],
+        use_arch_component_name = nba_cfg["use_arch_component_name"],
+        min_word_length         = 3,
+        mapping_threshold       = nba_cfg["mapping_threshold"],
+        word_count              = nba_cfg["word_count"],
+        use_stemming            = True,
+        random_seed             = None,
+    )
+
+    train_files = [f for f, m in prepared.file_labels.items() if m]
+    predicted   = predict_mapping(prepared, train_files, config)
+    return pd.DataFrame(
+        {"File": list(predicted), "predicted_module": list(predicted.values())}
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Run the NBA baseline. Config from experiments/config.json."
@@ -130,6 +157,10 @@ def main():
                         help="use the same pre-generated splits as GCN/GAT/MLP "
                              "(default: true). 'false' restores the old unseeded "
                              "random split per run.")
+    parser.add_argument("--mapping-only", action="store_true",
+                        help="skip evaluation entirely — predict a module for every "
+                             "unlabeled file using all labeled files as training data. "
+                             "No fixed splits, no repeats, no metrics required.")
     args = parser.parse_args()
     use_fixed_splits = args.use_fixed_splits.lower() == "true"
 
@@ -138,6 +169,15 @@ def main():
         if args.datasets == "all" else args.datasets.split(",")
     )
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+
+    if args.mapping_only:
+        for stem in stems:
+            print(f"\n--- {display_name(stem)} (mapping only) ---")
+            df = run_nba_mapping_only(stem)
+            out = RESULTS_DIR / f"{stem}_nba_mapping.csv"
+            df.to_csv(out, index=False)
+            print(f"  {len(df)} files mapped -> {out}")
+        return
 
     all_rows = []
     for stem in stems:

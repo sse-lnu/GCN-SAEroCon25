@@ -3,7 +3,8 @@ __pycache__/
 *.pyc
 *.pyo
 
-# Jupyter checkpoints (fixed_splits_experiment.ipynb itself IS tracked)
+# Notebooks — dev/exploration only, not part of the published CLI pipeline
+*.ipynb
 .ipynb_checkpoints/
 
 # Experiment outputs — large, reproducible from code

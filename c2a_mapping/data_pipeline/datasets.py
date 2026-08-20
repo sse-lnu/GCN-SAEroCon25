@@ -65,7 +65,9 @@ def load_file_level(stem, data_dir=None):
         df.groupby("File", as_index=False)
         .agg(
             Entity=("Entity", "first"),
-            Module=("Module", lambda s: sorted(set(str(m) for m in s if pd.notna(m) and str(m).strip()))[0]),
+            Module=("Module", lambda s: (lambda vals: sorted(vals)[0] if vals else None)(
+                set(str(m) for m in s if pd.notna(m) and str(m).strip())
+            )),
             Code=("Member_Name", lambda s: " ".join(sorted(set(str(x) for x in s if pd.notna(x) and str(x).strip())))),
         )
     )

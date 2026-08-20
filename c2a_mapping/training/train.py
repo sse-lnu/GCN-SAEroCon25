@@ -9,9 +9,9 @@ import copy
 
 import torch
 from torch_geometric.data import HeteroData
-from sklearn.preprocessing import LabelEncoder
 
 from data_pipeline import datasets, features_w2v, loc_features, graph
+from data_pipeline.label_utils import encode_labels
 from data_pipeline.seeds import generate_split, assert_hard_constraints
 from models.gcn import RelationalGCN
 from models.gat import RelationalGAT
@@ -91,9 +91,8 @@ def train(stem, model_type, ablation, model_cfg=None, train_cfg=None,
     else:
         data = HeteroData()
         data["file"].x = x
-        le = LabelEncoder()
-        data["file"].y = torch.tensor(le.fit_transform(file_df["Module"]), dtype=torch.long)
-        label_encoder  = le
+        y, label_encoder = encode_labels(file_df["Module"])
+        data["file"].y = y
         # Dummy empty edge so data.edge_index_dict works (MLP ignores edges)
         data["file", "none", "file"].edge_index = torch.zeros(2, 0, dtype=torch.long)
 

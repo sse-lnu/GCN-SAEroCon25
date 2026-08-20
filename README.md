@@ -1,67 +1,129 @@
-# C2A Graph — Code-to-Architecture Mapping
+# Code-to-Architecture Mapping with Graph Neural Networks
 
-Semi-supervised node classification pipeline for mapping source files to architectural modules using Graph Neural Networks (GCN, GAT) and an MLP baseline, with an iterative self-training loop. Includes a Naive Bayes (NBA) baseline for comparison.
+## Project Overview
 
-This repository is the extended version of the SAEroCon 2025 paper "Graph Convolutional Networks for Mapping Source Code Entities to Architectural Modules." The original `GCNCodeMap/` pipeline had a self-training bug (pseudo-labeled entities were retrained on their true labels instead of the model's own predictions, leaking test labels into training) and only ever reported metrics on the confidently-mapped subset, never the full test set. This extension replaces that pipeline with a corrected, expanded one (`c2a_mapping/`) covering more systems, GAT in addition to GCN, and edge-direction/depth ablations.
+A semi-supervised pipeline for mapping source files to architectural modules from a file-level dependency graph. Two Graph Neural Network encoders — **GCN** and **GAT** — are trained with an iterative self-training loop, alongside an **MLP** baseline (features only, no graph) and an **NBA** (Naive Bayes) baseline for comparison against a non-neural method.
 
----
+This corrects a label-leakage bug present in an earlier version of the pipeline (`GCNCodeMap/`, since replaced): pseudo-labeled entities were previously retrained on their true labels instead of the model's own predictions. `c2a_mapping/` fixes this and reports both mapped-subset and full-test-set metrics instead of only the former.
 
-## Repository Layout
+### Motivation
+
+Architecture documentation goes stale as a system evolves, and recovering the mapping by hand doesn't scale to large codebases. This pipeline infers the file-to-module mapping directly from the dependency structure and the code's own text, and — critically — it can extend a partial, incomplete mapping to unlabeled files without requiring a full ground truth for the whole system.
+
+### Approach
+
+Each system is modeled as a heterogeneous, multi-relational file-dependency graph:
+- **Nodes** are source files.
+- **Edges** are typed static dependencies (e.g. calls, imports, inheritance) between files.
+- **Node features** combine Word2Vec embeddings of the code's identifiers/text with a folder-location signal derived from each file's path.
+
+GCN/GAT encoders run an iterative self-training loop: warm up on a labeled seed set, then repeatedly promote high-confidence pseudo-labels and retrain. The MLP baseline uses the same features without any graph structure. NBA runs an independent Naive-Bayes-based iterative mapping for comparison.
+
+### Repository Contents
 
 ```
 c2a_mapping/
 ├── baselines/                       # NBA (Naive Bayes) baseline
-├── data/                            # Sample datasets (Bash, JabRef, Teammates)
-├── data_pipeline/                   # Feature extraction and graph construction
-├── evaluation/                      # Metric helpers
+├── data/                            # Sample datasets
+├── data_pipeline/                   # Feature extraction, graph construction, label encoding
+├── evaluation/                      # Metric helpers, misclassification analysis
 ├── experiments/                     # config.json + GNN experiment runner
 ├── models/                          # GCN, GAT, MLP definitions
 ├── training/                        # Self-training loop
-├── fixed_splits_experiment.ipynb    # Main experiment notebook (GCN/GAT/MLP/NBA, shared splits)
+├── run_mapping.py                   # Get automatic source file mapping
 └── requirements.txt
 ```
 
 ---
 
-## Installation
+## Research Questions
+
+- **RQ1 — Effectiveness & Scaling** *(primary)*: how effectively does GNN-based mapping perform relative to non-graph baselines, and how does it scale?
+- **RQ2 — Dependency-graph contribution** *(secondary, still verifiable)*: what does the dependency graph contribute beyond textual features, and where does it help or hurt on a per-file basis?
+- **RQ3 — Design sensitivity**: how sensitive is the approach to modeling dependency types separately, aggregation depth, and edge direction?
+- **Mapping**: assign modules to source files, and evaluate against them if labels are available.
+
+### RQ1 — Effectiveness & Scaling
+
+```bash
+cd c2a_mapping/
+python experiments/run_experiments.py          # GCN, GAT, MLP — all datasets, default config
+python baselines/run_nba.py                    # NBA baseline, same datasets
+```
+
+Compare `results/{gcn,gat}_hetero_results.csv` and `results/mlp_results.csv` against `results/nba_results.csv` on `f1_macro`/`f1_micro`/`precision_macro`/`recall_macro`.
+
+### RQ2 — Dependency-graph contribution
+
+```bash
+cd c2a_mapping/
+python evaluation/save_misclassified.py bash   # per-file misclassification rate, from an existing predictions.csv
+```
+
+Reads `results/{stem}_predictions.csv` (written by `run_experiments.py`) and writes `results/{stem}_misclassified.csv`: how often each file was misclassified across runs, letting you see where the model — and by extension the dependency graph — struggles on a given system.
+
+### RQ3 — Design sensitivity
+
+```bash
+python experiments/run_experiments.py --ablation homo_directed
+python experiments/run_experiments.py --ablation hetero_undirected
+python experiments/run_experiments.py --ablation hetero_reversed
+python experiments/run_experiments.py --ablation hetero_directed_1layer
+```
+
+See the Ablations table below for what each one varies.
+
+### Mapping without evaluation
+
+```bash
+cd c2a_mapping/
+python run_mapping.py --dataset bash --model gat
+```
+
+Every file with a known Module is used as training data (no held-out split — there's nothing to hold out for); every other file gets a `predicted_module`. No metrics are computed, since there's no assumption that a full ground truth exists. Output: `results/{stem}_mapping.csv` (`File`, `predicted_module` only). The NBA baseline has the same option: `python baselines/run_nba.py --mapping-only`.
+
+---
+
+## Setup
 
 ```bash
 cd c2a_mapping/
 pip install -r requirements.txt
 ```
 
----
-
-## Data
-
-The `c2a_mapping/data/` directory contains three sample systems (Bash, JabRef, Teammates). To add more systems, place their CSV files there:
-
-```
-c2a_mapping/data/
-├── {stem}.csv         # columns: File, Entity, Module, Member_Name
-└── {stem}_deps.csv    # columns: Source_File, Target_File, Dependency_Type, Dependency_Count
-```
+Tested against `torch==2.4.0` / `torch-geometric==2.7.0`; both support CUDA or CPU.
 
 ---
 
-## Running GNN Experiments (GCN · GAT · MLP)
+## Quick Start (Sanity Check)
 
 ```bash
 cd c2a_mapping/
-
-# All datasets, default config
-python experiments/run_experiments.py
-
-# Specific ablation
-python experiments/run_experiments.py --ablation homo_directed
-
-# Single dataset, quick test
 python experiments/run_experiments.py --dataset bash --runs 5
 ```
 
-Results are written per model/ablation to `results/{gcn,gat}_{hetero,homo,undirected,reversed}_results.csv` and `results/mlp_results.csv`.
+A small, fast dataset — should finish in well under a minute once dependencies are installed.
 
-`fixed_splits_experiment.ipynb` runs the same models against a shared set of pre-generated train/test splits, so every model in a given run sees the exact same labeled seed set — use this for paired comparisons across models.
+---
+
+## Running Experiments
+
+`experiments/run_experiments.py`:
+- `--ablation <name>` — one of the ablations below (default: `hetero_directed`).
+- `--dataset <stem>` — a single dataset instead of every configured one.
+- `--runs <n>` — override the run count for that dataset.
+
+`baselines/run_nba.py`:
+- `--datasets <stem,stem,...>` or `all`.
+- `--runs <n>` — runs per dataset (default: `nba.num_runs` in `config.json`).
+- `--mapping-only` — skip evaluation, predict every unlabeled file (see above).
+
+`run_mapping.py`:
+- `--dataset <stem>` (required).
+- `--model gcn|gat|mlp` (default: `gat`).
+- `--data-dir` / `--cache-dir` — override the default `data/` / `cache/w2v` locations.
+
+Results are written per model/ablation to `results/{gcn,gat}_{hetero,homo,undirected,reversed}_results.csv` and `results/mlp_results.csv`.
 
 ### Ablations
 
@@ -73,16 +135,36 @@ Results are written per model/ablation to `results/{gcn,gat}_{hetero,homo,undire
 | `hetero_reversed` | one conv per relation type, edges flipped | yes |
 | `hetero_directed_1layer` | one conv per relation type, 1 message-passing layer | yes |
 
+### Default Configuration
+
+From `experiments/config.json`:
+- **GCN / GAT**: hidden size 256, 2 message-passing layers, dropout 0.01 (GAT: 4 attention heads).
+- **MLP**: hidden size 256, dropout 0.0.
+- **Training**: learning rate 0.001, self-training promotion threshold 0.95, 100 warmup epochs, 4 self-training rounds of 30 epochs each.
+- **Runs**: 200 per dataset/model by default.
+
 ---
 
-## Running the NBA Baseline
+## Input and Output
 
-```bash
-cd c2a_mapping/
+Each dataset consists of two CSVs:
 
-python baselines/run_nba.py                        # all datasets
-python baselines/run_nba.py --datasets bash,jabref  # specific datasets
-python baselines/run_nba.py --runs 10               # quick test
+```
+c2a_mapping/data/
+├── {stem}.csv         # columns: File, Entity, Module, Member_Name
+└── {stem}_deps.csv    # columns: Source_File, Target_File, Dependency_Type, Dependency_Count
 ```
 
-Results are written to `results/nba_results.csv` (separate from GNN results). `f1_macro`/`f1_micro`/`precision_macro`/`recall_macro` are computed on the subset of entities the model mapped with confidence; the same metrics on the full test set (including forced predictions for everything below the confidence threshold) are prefixed `full_`.
+`Module` may be missing for some files — those become unlabeled nodes that `run_mapping.py` / `run_nba.py --mapping-only` will predict rather than requiring for evaluation.
+
+Output files, all under `results/`:
+- `{model}_{ablation}_results.csv` — metrics per run (`f1_macro`, `f1_micro`, `precision_macro`, `recall_macro`, plus `mapped_`-prefixed variants for the confidently-mapped subset).
+- `{stem}_predictions.csv` — per-file, per-run `true_module` / `pred_module` / `correct`, the input to RQ2's misclassification analysis.
+- `{stem}_mapping.csv` / `{stem}_nba_mapping.csv` — `File` / `predicted_module` only, no ground truth required.
+- `nba_results.csv` — NBA's own results, with the same mapped-subset naming as above and `full_`-prefixed forced-prediction variants.
+
+---
+
+## Data
+
+Most systems used here are available in the [GAER repository](https://github.com/sse-lnu/GAER/tree/master/data). `argouml`, `commons`, and `sweetHome` are included directly in `c2a_mapping/data/` because they aren't present there.

@@ -507,14 +507,18 @@ def morgan_file_logic_name(file_path: str) -> str:
 
 
 def clean_file_table(df: pd.DataFrame) -> pd.DataFrame:
-    c = df.dropna(subset=["File", "Module"]).copy()
+    """Keep every file with a File id — Module may be missing (unlabeled
+    file, no ground truth), in which case it's kept as an empty string
+    rather than dropped, so it still becomes a mappable node."""
+    c = df.dropna(subset=["File"]).copy()
     c["File"]   = c["File"].astype(str)
-    c["Module"] = c["Module"].astype(str)
+    c["Module"] = c["Module"].apply(lambda m: str(m) if pd.notna(m) and str(m).strip() else "")
     return c
 
 
 def build_architecture(df: pd.DataFrame) -> Architecture:
-    modules = sorted(clean_file_table(df)["Module"].dropna().astype(str).unique())
+    modules = clean_file_table(df)["Module"]
+    modules = sorted(m for m in modules.unique() if m)
     return Architecture(components=[Component(name=m) for m in modules])
 
 
@@ -612,6 +616,7 @@ def generate_file_split(
         .drop_duplicates(subset=["File"])
         .reset_index(drop=True)
     )
+    file_labels = file_labels[file_labels["Module"] != ""]  # seed candidates need a real label
     files  = file_labels["File"].astype(str).to_numpy()
     labels = file_labels["Module"].astype(str).to_numpy()
 
@@ -696,7 +701,9 @@ def evaluate_mapping_results(
     forced_true, forced_pred = [], []
 
     for r in results:
-        true = file_labels[r.node_name]
+        true = file_labels.get(r.node_name)
+        if not true:  # no ground truth for this file — can't be scored
+            continue
         forced_true.append(true)
         forced_pred.append(max(r.attractions, key=r.attractions.get))
         if r.predicted_component is not None:
@@ -732,6 +739,19 @@ def evaluate_mapping_results(
         "test_size":          total,
         "mapped_class_count": len(mapped_labels),
         "test_class_count":   len(full_labels),
+    }
+
+
+def predict_mapping(prepared: PreparedDataset, train_files: Sequence[str], config) -> Dict[str, str]:
+    """Run the iterative mapping and return {file: predicted_module} for every
+    non-seed file — no evaluation, no ground truth required for any of them.
+    Every file gets a mapping: confidently-mapped files use
+    predicted_component, anything left over falls back to the highest-
+    attraction module (same forced-choice convention as the full_ metrics)."""
+    results, _, _ = run_iterative_nb_mapping(prepared, train_files, config)
+    return {
+        r.node_name: r.predicted_component or max(r.attractions, key=r.attractions.get)
+        for r in results
     }
 
 

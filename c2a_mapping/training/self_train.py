@@ -22,6 +22,32 @@ def _edge_index_dict(data):
         return {}
 
 
+def _labeled(true, pred):
+    """Exclude nodes with no ground truth (sentinel -1) before scoring —
+    metrics can only be computed where a true label actually exists."""
+    mask = true != -1
+    return true[mask], pred[mask]
+
+
+def _score(true, pred, labels=None):
+    """f1/precision/recall, or None-filled if there's nothing to score
+    (e.g. every node in this subset is unlabeled)."""
+    if len(true) == 0:
+        return {k: None for k in (
+            "f1_macro", "f1_micro", "precision_macro", "precision_micro",
+            "recall_macro", "recall_micro",
+        )}
+    kw = dict(zero_division=1) if labels is None else dict(labels=labels, zero_division=1)
+    return {
+        "f1_macro":        f1_score(true, pred, average="macro",  **kw),
+        "f1_micro":        f1_score(true, pred, average="micro",  **kw),
+        "precision_macro": precision_score(true, pred, average="macro",  **kw),
+        "precision_micro": precision_score(true, pred, average="micro",  **kw),
+        "recall_macro":    recall_score(true, pred, average="macro",  **kw),
+        "recall_micro":    recall_score(true, pred, average="micro",  **kw),
+    }
+
+
 def self_train(
     data,
     model,
@@ -112,25 +138,22 @@ def self_train(
         pseudo_idx = torch.where(pseudo_mask)[0].tolist()
         pred_lbl   = train_labels[pseudo_idx].cpu().numpy()
         true_lbl   = true_labels[pseudo_idx].cpu().numpy()
+        true_lbl, pred_lbl = _labeled(true_lbl, pred_lbl)
         mapped     = int((seed_mask | pseudo_mask).sum())
         remaining  = int((~(seed_mask | pseudo_mask)).sum())
 
         metrics = {
             "round":             rd,
             "new_pseudo":        prev_added,
-            "f1_macro":          f1_score(true_lbl, pred_lbl, average="macro",  zero_division=1),
-            "f1_micro":          f1_score(true_lbl, pred_lbl, average="micro",  zero_division=1),
-            "precision_macro":   precision_score(true_lbl, pred_lbl, average="macro",  zero_division=1),
-            "precision_micro":   precision_score(true_lbl, pred_lbl, average="micro",  zero_division=1),
-            "recall_macro":      recall_score(true_lbl, pred_lbl, average="macro",  zero_division=1),
-            "recall_micro":      recall_score(true_lbl, pred_lbl, average="micro",  zero_division=1),
+            **_score(true_lbl, pred_lbl),
             "mapped":            mapped,
             "orphans_remaining": remaining,
         }
         metrics_history.append(metrics)
         if verbose:
+            f1_str = f"{metrics['f1_macro']:.3f}" if metrics["f1_macro"] is not None else "n/a"
             print(f"  round {rd}: +{prev_added} pseudo  "
-                  f"f1_macro={metrics['f1_macro']:.3f}  "
+                  f"f1_macro={f1_str}  "
                   f"mapped={mapped}  orphans={remaining}")
 
     # ── Final evaluation on all non-seed nodes ────────────────────────────────
@@ -146,22 +169,14 @@ def self_train(
     test_true,   test_pred   = final_true[test_idx_np],   final_pred[test_idx_np]
     mapped_true, mapped_pred = final_true[mapped_idx_np], final_pred[mapped_idx_np]
 
-    test_labels_present   = np.unique(test_true)
-    mapped_labels_present = np.unique(mapped_true) if len(mapped_true) > 0 else test_labels_present
+    test_true_l,   test_pred_l   = _labeled(test_true, test_pred)
+    mapped_true_l, mapped_pred_l = _labeled(mapped_true, mapped_pred)
+
+    test_labels_present   = np.unique(test_true_l) if len(test_true_l) > 0 else None
+    mapped_labels_present = np.unique(mapped_true_l) if len(mapped_true_l) > 0 else test_labels_present
 
     final_mapped = int((seed_mask | pseudo_mask).sum())
     coverage     = final_mapped / num_files
-
-    def _m(true, pred, labs):
-        kw = dict(labels=labs, zero_division=1)
-        return {
-            "f1_macro":        f1_score(true, pred, average="macro",  **kw),
-            "f1_micro":        f1_score(true, pred, average="micro",  **kw),
-            "precision_macro": precision_score(true, pred, average="macro",  **kw),
-            "precision_micro": precision_score(true, pred, average="micro",  **kw),
-            "recall_macro":    recall_score(true, pred, average="macro",  **kw),
-            "recall_micro":    recall_score(true, pred, average="micro",  **kw),
-        }
 
     result = {
         "seed_size":      int(seed_mask.sum()),
@@ -170,8 +185,8 @@ def self_train(
         "unmapped_count": int((~(seed_mask | pseudo_mask)).sum()),
         "coverage":       coverage,
         "rounds_run":     len(metrics_history),
-        **{f"mapped_{k}": v for k, v in _m(mapped_true, mapped_pred, mapped_labels_present).items()},
-        **_m(test_true, test_pred, test_labels_present),
+        **{f"mapped_{k}": v for k, v in _score(mapped_true_l, mapped_pred_l, mapped_labels_present).items()},
+        **_score(test_true_l, test_pred_l, test_labels_present),
         "metrics_history": metrics_history,
     }
 
@@ -179,9 +194,11 @@ def self_train(
         pseudo_idx = torch.where(pseudo_mask)[0].tolist()
         result["predictions"] = (
             [{"node_idx": i, "true_label": true_labels[i].item(),
-              "pred_label": train_labels[i].item()} for i in pseudo_idx]
+              "pred_label": train_labels[i].item(),
+              "forced_pred_label": int(final_pred[i])} for i in pseudo_idx]
             + [{"node_idx": i, "true_label": true_labels[i].item(),
-                "pred_label": None}
+                "pred_label": None,
+                "forced_pred_label": int(final_pred[i])}
                for i in torch.where(~(seed_mask | pseudo_mask))[0].tolist()]
         )
 

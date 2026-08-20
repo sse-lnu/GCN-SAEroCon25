@@ -8,8 +8,9 @@ Ablation parameters:
 from collections import defaultdict
 
 import torch
-from sklearn.preprocessing import LabelEncoder
 from torch_geometric.data import HeteroData
+
+from data_pipeline.label_utils import encode_labels
 
 
 def build_graph(file_df, file_dep, x,
@@ -28,9 +29,8 @@ def build_graph(file_df, file_dep, x,
     data = HeteroData()
     data["file"].x = x
 
-    label_encoder = LabelEncoder()
-    labels = label_encoder.fit_transform(file_df["Module"])
-    data["file"].y = torch.tensor(labels, dtype=torch.long)
+    y, label_encoder = encode_labels(file_df["Module"])
+    data["file"].y = y
 
     relations = sorted(file_dep["Dependency_Type"].dropna().unique().tolist())
     edge_dict = defaultdict(list)

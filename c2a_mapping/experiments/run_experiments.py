@@ -18,7 +18,6 @@ import sys
 from pathlib import Path
 
 import pandas as pd
-from sklearn.preprocessing import LabelEncoder
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -87,7 +86,6 @@ def run(config_path, ablation_override=None, dataset_override=None, runs_overrid
         df_predictions  = load_existing(predictions_path)
 
         file_df, _ = load_file_level(stem)
-        label_encoder = LabelEncoder().fit(file_df["Module"])
 
         n_runs = runs_override or dataset_overrides.get(stem, {}).get("runs", config["default_runs"])
 
@@ -113,12 +111,14 @@ def run(config_path, ablation_override=None, dataset_override=None, runs_overrid
 
                 pred_rows = []
                 for row in rows:
-                    for p in row.pop("_predictions", []):
-                        true_m = lenc.inverse_transform([p["true_label"]])[0]
+                    run_id = row["run_id"]
+                    for p in row.pop("predictions", []):
+                        true_m = (lenc.inverse_transform([p["true_label"]])[0]
+                                  if p["true_label"] != -1 else None)
                         pred_m = (lenc.inverse_transform([p["pred_label"]])[0]
                                   if p["pred_label"] is not None else None)
                         pred_rows.append({
-                            "run_id": p["run_id"], "data_name": stem,
+                            "run_id": run_id, "data_name": stem,
                             "model": model_type.lower(),
                             "file": fdf["File"].iloc[p["node_idx"]],
                             "true_module": true_m, "pred_module": pred_m,
